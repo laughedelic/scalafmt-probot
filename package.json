@@ -1,0 +1,24 @@
+{
+  "name": "scalafmt-probot",
+  "version": "0.1.0",
+  "description": "",
+  "author": "Alexey Alekhin <laughedelic@gmail.com>",
+  "license": "MPL-2.0",
+  "repository": "https://github.com/laughedelic/scalafmt-probot.git",
+  "scripts": {
+    "start": "probot run ./index.js",
+    "test": "standard"
+  },
+  "dependencies": {
+    "probot": "^5.0.0",
+    "scalafmt": "^1.1.0-beta.5"
+  },
+  "devDependencies": {
+    "smee-client": "^1.0.1",
+    "standard": "^10.0.3"
+  },
+  "engines": {
+    "node": ">= 7.7.0",
+    "npm": ">= 4.0.0"
+  }
+}
