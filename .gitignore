@@ -30,3 +30,4 @@ data/out/
 
 ignore.sbt
 /bin/
+lib/
