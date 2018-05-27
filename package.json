@@ -9,13 +9,12 @@
     "start": "probot run ./lib/index.js"
   },
   "dependencies": {
-    "probot": "file://../probot/"
+    "probot": "7.0.0-typescript.4"
   },
   "devDependencies": {
     "smee-client": "^1.0.1"
   },
   "engines": {
-    "node": ">= 7.7.0",
-    "npm": ">= 4.0.0"
+    "node": ">= 8.3.0"
   }
 }

@@ -32,9 +32,9 @@ enablePlugins(ScalaJSPlugin)
 
 resolvers += Resolver.bintrayRepo("laughedelic", "maven")
 libraryDependencies ++= Seq(
-  "laughedelic" %%% "scalajs-probot" % "02ae5881+20180513-0153",
-  "laughedelic" %%% "scalajs-octokit" % "3071db72+20180513-0513",
-  "com.geirsson" %%% "scalafmt-core" % "1.5.1",
+  "laughedelic" %%% "scalajs-probot" % "0d5b0599",
+  "laughedelic" %%% "scalajs-octokit" % "aa984a0d",
+  "com.geirsson" %%% "scalafmt-core" % "1.6.0-RC1",
   "io.scalajs" %%% "nodejs" % "0.4.2",
 )
 
