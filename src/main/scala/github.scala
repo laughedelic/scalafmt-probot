@@ -24,8 +24,8 @@ case class GHUtils(
         .asInstanceOf[js.Array[js.Dynamic]]
         .map { node => node.path.asInstanceOf[Path] }
         .filter { path =>
-          path.endsWith(".scala") ||
-          path.endsWith(".sbt")
+          path.endsWith(".scala")
+          // path.endsWith(".sbt")
         }
       context.log.debug(files)
       files.toList

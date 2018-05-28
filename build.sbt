@@ -32,7 +32,7 @@ enablePlugins(ScalaJSPlugin)
 
 resolvers += Resolver.bintrayRepo("laughedelic", "maven")
 libraryDependencies ++= Seq(
-  "laughedelic" %%% "scalajs-probot" % "0d5b0599",
+  "laughedelic" %%% "scalajs-probot" % "b7ff2bca",
   "laughedelic" %%% "scalajs-octokit" % "aa984a0d",
   "com.geirsson" %%% "scalafmt-core" % "1.6.0-RC1",
   "io.scalajs" %%% "nodejs" % "0.4.2",
@@ -46,4 +46,5 @@ scalaJSLinkerConfig ~= { conf =>
     .withOutputMode(OutputMode.ECMAScript2015)
 }
 
+artifactPath in (Compile, fastOptJS) := baseDirectory.value / "lib" / "index.js"
 artifactPath in (Compile, fullOptJS) := baseDirectory.value / "lib" / "index.js"
