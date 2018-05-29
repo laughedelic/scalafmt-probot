@@ -33,9 +33,8 @@ enablePlugins(ScalaJSPlugin)
 resolvers += Resolver.bintrayRepo("laughedelic", "maven")
 libraryDependencies ++= Seq(
   "laughedelic" %%% "scalajs-probot" % "b7ff2bca",
-  "laughedelic" %%% "scalajs-octokit" % "aa984a0d",
   "com.geirsson" %%% "scalafmt-core" % "1.6.0-RC1",
-  "io.scalajs" %%% "nodejs" % "0.4.2",
+  "org.scala-lang.modules" %% "scala-async" % "0.9.7",
 )
 
 scalaJSOutputWrapper := ("", """module.exports = exports.probot;""")
