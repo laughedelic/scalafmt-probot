@@ -17,7 +17,6 @@ object ScalafmtProbot {
       case _ =>
         MisFormatted(path)
     }
-  
 
   @JSExportTopLevel("probot")
   def probot(robot: Robot): Unit = {
