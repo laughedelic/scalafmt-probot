@@ -81,6 +81,42 @@ case class CheckContext(context: Context)(
       output = output,
     )
 
+  def cancelCheck(checkId: String)(
+    summary: String,
+    details: js.UndefOr[String] = js.undefined,
+  ) = updateCheck(checkId)(
+      status = "completed",
+      conclusion = "cancelled",
+      output = new CheckOutput(
+        title = "Formatting check was cancelled",
+        summary = summary,
+        text = details,
+      )
+    )
+
+  def succeedCheck(checkId: String) =
+    updateCheck(checkId)(
+      status = "completed",
+      conclusion = "success",
+      output = new CheckOutput(
+        title = "Formatting check succeeded",
+        summary = "All files are well-formatted",
+      )
+    )
+
+  def failCheck(checkId: String)(
+    misformatted: List[String],
+  ) = updateCheck(checkId)(
+    status = "completed",
+    conclusion = "failure",
+    output = new CheckOutput(
+      title = "Formatting check failed",
+      summary = s"""|These files are mis-formatted:
+                    |${misformatted.mkString("* `", "`\n* `", "`")}
+                    |""".stripMargin,
+    )
+  )
+
   def checkFormatting(
     path: String,
     content: String,
@@ -95,68 +131,49 @@ case class CheckContext(context: Context)(
         MisFormatted(path)
     }
 
+  def run(
+    checkId: String,
+    config: ScalafmtConfig,
+  ): Future[js.Any] = async {
+    val paths = listAllFiles()
+    val futures = Future.traverse(await(paths)) { path =>
+      async {
+        val content = getContent(path)
+        val result = checkFormatting(path, await(content), config)
+        log.info(result.toString)
+        result
+      }
+    }
+    val results = await(futures)
+    val success = results.forall {
+      case WellFormatted(_) => true
+      case _ => false
+    }
+    await {
+      if (success) succeedCheck(checkId)
+      else failCheck(checkId)(
+        results.collect { case MisFormatted(path) => path }
+      )
+    }
+  }
+
   def run(): Future[js.Any] = async {
     val checkId = await { createCheck() }
-
     // TODO: report neutral status when there is no config, or use default one
-    val configContent = getContent(".scalafmt.conf")
-
-    Scalafmt.parseHoconConfig(await(configContent)) match {
+    val configContent = await { getContent(".scalafmt.conf") }
+    Scalafmt.parseHoconConfig(configContent) match {
       case NotOk(err) => await {
-        updateCheck(checkId)(
-          status = "completed",
-          conclusion = "cancelled",
-          output = new CheckOutput(
-            title = "Formatting check was cancelled",
-            summary = s"Couldn't parse the `.scalafmt.conf` config",
-            text = s"```\n${err}\n```",
-          )
+        cancelCheck(checkId)(
+          summary = s"Couldn't parse the `.scalafmt.conf` config",
+          details = s"```\n${err}\n```",
         )
       }
-      case Ok(config) => {
-        val paths = listAllFiles()
-        val futures = Future.traverse(await(paths)) { path =>
-          async {
-            val content = getContent(path)
-            checkFormatting(path, await(content), config)
-          }
-        }
-
-        val results = await(futures)
-        results.foreach{ result =>
-          context.log.info(result.toString)
-        }
-
-        val success = results.forall {
-          case WellFormatted(_) => true
-          case _ => false
-        }
-        val misformatted =
-          results.collect { case MisFormatted(path) => path }
-
-        await {
-          if (success) updateCheck(checkId)(
-            status = "completed",
-            conclusion = "success",
-            output = new CheckOutput(
-              title = "Formatting check succeeded",
-              summary = "All files are well-formatted",
-            )
-          )
-          else updateCheck(checkId)(
-            status = "completed",
-            conclusion = "failure",
-            output = new CheckOutput(
-              title = "Formatting check failed",
-              summary = s"""|These files are mis-formatted:
-                            |${misformatted.mkString("* `", "`\n* `", "`")}
-                            |""".stripMargin,
-            )
-          )
-        }
+      case Ok(config) => await {
+        run(checkId, config)
       }
     }
   }
+
 }
 
 sealed trait FormattingResult
