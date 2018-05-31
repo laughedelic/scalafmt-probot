@@ -28,21 +28,18 @@ object ScalafmtProbot {
       "check_suite.rerequested",
       // "check_run.rerequested", // the payload shape is different
     ) { context => async {
-      context.log.info(js.JSON.stringify(context.payload, space = 2))
       val payload = context.payload.asDynamic
-      val sha = payload.check_suite.head_sha.toString
+      // context.log.info(js.JSON.stringify(payload, space = 2))
 
-      val gh = new GHUtils(robot, context)
+      val gh = GHUtils(context)(new MinimalPayload(
+        head_branch = payload.check_suite.head_branch.toString,
+        head_sha    = payload.check_suite.head_sha.toString,
+      ))
 
-      val checkId = await {
-        gh.createCheck(
-          head_branch = payload.check_suite.head_branch.toString,
-          head_sha = sha,
-        )
-      }
+      val checkId = await { gh.createCheck() }
 
       // TODO: report neutral status when there is no config, or use default one
-      val configContent = gh.getContent(".scalafmt.conf", sha)
+      val configContent = gh.getContent(".scalafmt.conf")
 
       Scalafmt.parseHoconConfig(await(configContent)) match {
         case NotOk(err) => await {
@@ -57,10 +54,10 @@ object ScalafmtProbot {
           )
         }
         case Ok(config) => {
-          val paths = gh.listAllFiles(sha)
+          val paths = gh.listAllFiles()
           val futures = Future.traverse(await(paths)) { path =>
             async {
-              val content = gh.getContent(path, sha)
+              val content = gh.getContent(path)
               checkFormatting(path, await(content), config)
             }
           }
