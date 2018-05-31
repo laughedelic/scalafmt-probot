@@ -48,4 +48,52 @@ case class GHUtils(
     }
   }
 
+  private val checkName = "Scalafmt"
+
+  def createCheck(
+    head_branch: String,
+    head_sha: String,
+  ): Future[String] =
+    context.github.checks.create(
+      name = checkName,
+      owner = context.repo().owner,
+      repo = context.repo().repo,
+      status = "queued",
+      head_branch = head_branch,
+      head_sha = head_sha,
+    ).map { _.data.id.toString }
+
+  def updateCheck(checkId: String)(
+    status: String,
+    conclusion: js.UndefOr[String] = js.undefined,
+    output: js.UndefOr[CheckOutput] = js.undefined,
+  ): Future[Octokit.AnyResponse] =
+    context.github.checks.update(
+      name = checkName,
+      check_run_id = checkId,
+      owner = context.repo().owner,
+      repo = context.repo().repo,
+      status = status,
+      conclusion = conclusion,
+      completed_at = conclusion.map { _ => new js.Date().toISOString() },
+      output = output,
+    )
 }
+
+class CheckOutput(
+  val title: String,
+  val summary: String,
+  val text: js.UndefOr[String] = js.undefined,
+  val annotations: js.UndefOr[js.Array[CheckAnnotation]] = js.undefined,
+) extends js.Object
+
+class CheckAnnotation(
+  val filename: String,
+  val blob_href: String,
+  val start_line: Int,
+  val end_line: Int,
+  val warning_level: String,
+  val message: String,
+  val title: js.UndefOr[String] = js.undefined,
+  val raw_details: js.UndefOr[String] = js.undefined,
+) extends js.Object
