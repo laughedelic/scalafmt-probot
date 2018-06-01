@@ -18,12 +18,12 @@ case class CheckContext(context: Context)(
   val repo = context.repo()
   val log = context.log
 
-  def listAllFiles(): Future[List[String]] = {
+  def listAllFiles(recursively: Boolean): Future[List[String]] = {
     github.gitdata.getTree(
       owner = repo.owner,
       repo = repo.repo,
       tree_sha = head_sha,
-      recursive = 1,
+      recursive = if (recursively) 1 else js.undefined,
     ).map { response =>
       val files = response.data.tree
         .asInstanceOf[js.Array[js.Dynamic]]
@@ -44,6 +44,7 @@ case class CheckContext(context: Context)(
       path = path,
       ref = head_sha,
     ).map { response =>
+      log.info(js.JSON.stringify(response, space = 2))
       val content = Buffer.from(
         response.data.content.asInstanceOf[String],
         "base64"
@@ -69,6 +70,7 @@ case class CheckContext(context: Context)(
     status: String,
     conclusion: js.UndefOr[String] = js.undefined,
     output: js.UndefOr[CheckOutput] = js.undefined,
+    actions: js.UndefOr[js.Array[CheckAction]] = js.undefined,
   ): Future[Octokit.AnyResponse] =
     github.checks.update(
       name = checkName,
@@ -79,6 +81,7 @@ case class CheckContext(context: Context)(
       conclusion = conclusion,
       completed_at = conclusion.map { _ => new js.Date().toISOString() },
       output = output,
+      actions = actions,
     )
 
   def cancelCheck(checkId: String)(
@@ -135,7 +138,7 @@ case class CheckContext(context: Context)(
     checkId: String,
     config: ScalafmtConfig,
   ): Future[js.Any] = async {
-    val paths = listAllFiles()
+    val paths = listAllFiles(recursively = true)
     val futures = Future.traverse(await(paths)) { path =>
       async {
         val content = getContent(path)
@@ -157,19 +160,71 @@ case class CheckContext(context: Context)(
     }
   }
 
-  def run(): Future[js.Any] = async {
-    val checkId = await { createCheck() }
-    // TODO: report neutral status when there is no config, or use default one
-    val configContent = await { getContent(".scalafmt.conf") }
-    Scalafmt.parseHoconConfig(configContent) match {
-      case NotOk(err) => await {
+  def readConfig(checkId: String): Future[Option[String]] = {
+    val confPath = ".scalafmt.conf"
+    getContent(confPath)
+      .map { Some(_) }
+      .recoverWith {
+        case err: Throwable => async {
+          log.warn(err.toString)
+          val paths = await { listAllFiles(recursively = false) }
+          if (paths.contains(confPath)) await {
+            cancelCheck(checkId)(
+              summary = s"Couldn't read the `.scalafmt.conf` config",
+              details = Seq(
+                "```",
+                err.getMessage(),
+                "```",
+              ).mkString("\n"),
+            ).map { _ => None }
+          } else await {
+            updateCheck(checkId)(
+              status = "completed",
+              conclusion = "neutral",
+              output = new CheckOutput(
+                title = "Formatting check needs a configuration",
+                summary = "No Scalafmt configuration file is found. The formatting check won't run without it. You can add an empty config if you want to use Scalafmt defaults. Just commit a `.scalafmt.conf` file to this branch.",
+              ),
+              // TODO: add this when actions type is fixed: https://github.com/octokit/routes/issues/167#issuecomment-393601130
+              // actions = js.Array(
+              //   new CheckAction(
+              //     label = "Create config",
+              //     description = "Create an empty `.scalafmt.conf` file to use Scalafmt defaults",
+              //     identifier = "create_config",
+              //   ),
+              // ),
+            ).map { _ => None }
+          }
+        }
+      }
+  }
+
+  def parseConfig(
+    checkId: String,
+    content: String
+  ): Future[Option[ScalafmtConfig]] = {
+    Scalafmt.parseHoconConfig(content) match {
+      case Ok(config) => Future.successful(Some(config))
+      case NotOk(err) =>
+        log.warn(err.toString)
         cancelCheck(checkId)(
           summary = s"Couldn't parse the `.scalafmt.conf` config",
           details = s"```\n${err}\n```",
-        )
-      }
-      case Ok(config) => await {
-        run(checkId, config)
+        ).map { _ => None }
+    }
+  }
+
+  def run(): Future[js.Any] = async {
+    val checkId = await { createCheck() }
+    val configContentOpt = await { readConfig(checkId) }
+    configContentOpt match {
+      case None => ()
+      case Some(content) => {
+        val configOpt = await { parseConfig(checkId, content) }
+        configOpt match {
+          case None => ()
+          case Some(config) => await { run(checkId, config) }
+        }
       }
     }
   }
@@ -197,4 +252,10 @@ class CheckAnnotation(
   val message: String,
   val title: js.UndefOr[String] = js.undefined,
   val raw_details: js.UndefOr[String] = js.undefined,
+) extends js.Object
+
+class CheckAction(
+  val label: String,
+  val description: String,
+  val identifier: String,
 ) extends js.Object
