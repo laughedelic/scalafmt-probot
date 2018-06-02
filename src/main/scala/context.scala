@@ -119,17 +119,21 @@ case class CheckContext(context: Context)(
 
   def checkFormatting(
     path: String,
-    content: String,
+    code: String,
     config: ScalafmtConfig,
-  ): FormattingResult =
-    Scalafmt.format(content, config) match {
+  ): FormattingResult = {
+    val style =
+      if (path.endsWith(".sbt")) Scalafmt.configForSbt(config)
+      else config
+    Scalafmt.format(code, style) match {
       case Formatted.Failure(error) =>
         FormattingError(path, error.toString)
-      case Formatted.Success(formatted) if content == formatted =>
+      case Formatted.Success(formatted) if code == formatted =>
         WellFormatted(path)
       case _ =>
         MisFormatted(path)
     }
+  }
 
   def run(
     checkId: String,
@@ -139,12 +143,12 @@ case class CheckContext(context: Context)(
       config.project.includeFilters,
       config.project.excludeFilters
     )
-    val paths = await(listAllFiles(recursively = true))
+    val paths = await { listAllFiles(recursively = true) }
       .filter(matcher.matches)
     val futures = Future.traverse(paths) { path =>
       async {
-        val content = getContent(path)
-        val result = checkFormatting(path, await(content), config)
+        val content = await { getContent(path) }
+        val result = checkFormatting(path, content, config)
         log.info(result.toString)
         result
       }
