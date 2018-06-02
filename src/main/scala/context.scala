@@ -7,7 +7,7 @@ import io.scalajs.nodejs.buffer.Buffer
 import scala.concurrent._, ExecutionContext.Implicits.global
 import scala.async.Async.{ async, await }
 import org.scalafmt.{ Scalafmt, Formatted }
-import org.scalafmt.config.ScalafmtConfig
+import org.scalafmt.config.{ ScalafmtConfig, FilterMatcher }
 import metaconfig.Configured.{ Ok, NotOk }
 
 case class CheckContext(context: Context)(
@@ -19,21 +19,18 @@ case class CheckContext(context: Context)(
   val log = context.log
 
   def listAllFiles(recursively: Boolean): Future[List[String]] = {
+    // TODO: add pagination, the list can be very big
     github.gitdata.getTree(
       owner = repo.owner,
       repo = repo.repo,
       tree_sha = head_sha,
       recursive = if (recursively) 1 else js.undefined,
     ).map { response =>
-      val files = response.data.tree
+      val paths = response.data.tree
         .asInstanceOf[js.Array[js.Dynamic]]
         .map { node => node.path.asInstanceOf[String] }
-        .filter { path =>
-          path.endsWith(".scala")
-          // path.endsWith(".sbt")
-        }
-      // log.debug(files)
-      files.toList
+      // log.debug(paths)
+      paths.toList
     }
   }
 
@@ -138,8 +135,13 @@ case class CheckContext(context: Context)(
     checkId: String,
     config: ScalafmtConfig,
   ): Future[js.Any] = async {
-    val paths = listAllFiles(recursively = true)
-    val futures = Future.traverse(await(paths)) { path =>
+    val matcher = FilterMatcher(
+      config.project.includeFilters,
+      config.project.excludeFilters
+    )
+    val paths = await(listAllFiles(recursively = true))
+      .filter(matcher.matches)
+    val futures = Future.traverse(paths) { path =>
       async {
         val content = getContent(path)
         val result = checkFormatting(path, await(content), config)
