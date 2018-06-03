@@ -1,15 +1,13 @@
 package laughedelic.scalafmt.probot
 
-import scala.scalajs.js, js.annotation._
 import laughedelic.probot._
 import scala.concurrent._, ExecutionContext.Implicits.global
 
 object ScalafmtProbot {
 
-  @JSExportTopLevel("probot")
-  def probot(robot: Robot): Unit = {
+  def plugin(app: Application): Unit = {
 
-    robot.on(
+    app.on(
       "check_suite.requested",
       "check_suite.rerequested",
     ) { context =>
@@ -20,7 +18,7 @@ object ScalafmtProbot {
       ).run()
     }
 
-    robot.on(
+    app.on(
       "check_run.rerequested",
     ) { context =>
       val check_suite = context.payload.asDynamic.check_run.check_suite
@@ -30,4 +28,7 @@ object ScalafmtProbot {
       ).run()
     }
   }
+
+  def main(args: Array[String]): Unit = Probot.run(plugin)
+
 }

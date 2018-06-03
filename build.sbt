@@ -5,7 +5,7 @@ organization := "laughedelic"
 description := ""
 
 homepage := Some(url(s"https://github.com/${organization.value}/${name.value}"))
-scmInfo in ThisBuild := Some(ScmInfo(
+ThisBuild/scmInfo := Some(ScmInfo(
   homepage.value.get,
   s"scm:git:git@github.com:${organization.value}/${name.value}.git"
 ))
@@ -32,12 +32,12 @@ enablePlugins(ScalaJSPlugin)
 
 resolvers += Resolver.bintrayRepo("laughedelic", "maven")
 libraryDependencies ++= Seq(
-  "laughedelic" %%% "scalajs-probot" % "b7ff2bca",
+  "laughedelic" %%% "scalajs-probot" % "12609435",
   "com.geirsson" %%% "scalafmt-core" % "1.6.0-RC1",
   "org.scala-lang.modules" %% "scala-async" % "0.9.7",
 )
 
-scalaJSOutputWrapper := ("", """module.exports = exports.probot;""")
+scalaJSUseMainModuleInitializer := true
 
 scalaJSLinkerConfig ~= { conf =>
   conf
@@ -45,5 +45,8 @@ scalaJSLinkerConfig ~= { conf =>
     .withOutputMode(OutputMode.ECMAScript2015)
 }
 
-artifactPath in (Compile, fastOptJS) := baseDirectory.value / "lib" / "index.js"
-artifactPath in (Compile, fullOptJS) := baseDirectory.value / "lib" / "index.js"
+enablePlugins(ScalaJSBundlerPlugin)
+Compile/npmDependencies ++= Seq(
+  "probot" -> "next",
+  "smee-client" -> "^1.0.1",
+)

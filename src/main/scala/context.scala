@@ -41,7 +41,7 @@ case class CheckContext(context: Context)(
       path = path,
       ref = head_sha,
     ).map { response =>
-      log.info(js.JSON.stringify(response, space = 2))
+      // log.debug(js.JSON.stringify(response, space = 2))
       val content = Buffer.from(
         response.data.content.asInstanceOf[String],
         "base64"
@@ -149,7 +149,7 @@ case class CheckContext(context: Context)(
       async {
         val content = await { getContent(path) }
         val result = checkFormatting(path, content, config)
-        log.info(result.toString)
+        log.debug(result.toString)
         result
       }
     }
